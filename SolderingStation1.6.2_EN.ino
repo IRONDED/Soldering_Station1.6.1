@@ -54,7 +54,7 @@ __asm volatile ("nop");
 //#define PASSIVE_BUZZER            // Использование пассивного пьезоизлучателя
 #define HA_ADV_PROT_ON              // Расширенная защита термофена
 #define S_ADV_PROT_ON               // Расширенная защита паяльника
-//#define LCD_1602                  // Использование LCD 16x2 (иначе 20x4)
+//#define LCD_1602                  // Использование LCD1602 или LCD2004
 //#define SOLDER_DIGIT_JUMPS_REMOVE // Устранение скачков показаний температуры паяльника
 //#define HOTAIR_DIGIT_JUMPS_REMOVE // Устранение скачков показаний температуры термофена
 //#define SOLDER_SOFT_START         // Плавный старт паяльника 
@@ -1670,3 +1670,4 @@ byte GetPos(uint16_t number) {
 
 
  
+
