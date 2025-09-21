@@ -135,13 +135,13 @@ char bspace[ ] = "    ";
 
 
 #ifdef ENCODER
-#define e_button 15 //pin A1 button
+#define e_button 15 //pin A3 button
 #define e_dir 16    //pin A2 enc_a
-#define e_step 17   //pin A3 enc_b
+#define e_step 17   //pin A1 enc_b
 #else
-#define bt_Sel 15   //pin A1
+#define bt_Sel 15   //pin A3
 #define bt_Up 16    //pin A2
-#define bt_Dwn 17   //pin A3
+#define bt_Dwn 17   //pin A1
 #endif
 
 
@@ -1683,4 +1683,5 @@ byte GetPos(uint16_t number) {
 }
 
 /*********************************************** END OF DISPLAY ********************************************/
+
 
