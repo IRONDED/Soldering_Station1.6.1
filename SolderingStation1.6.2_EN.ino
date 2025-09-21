@@ -35,13 +35,13 @@ pin A7 Операционного усилителя фена
 
 
 
-#include <EEPROM.h>             // Для сохранения настроек в энергонезависимую память
-#include <CyberLib.h>           // Вспомогательная библиотека для Arduino
-#include <Wire.h>               // Для I2C коммуникации (с LCD дисплеем)
-#include <LiquidCrystal_I2C.h>  // Для управления I2C LCD дисплеем
-#include <Bounce2.h>            // Для устранения дребезга контактов кнопок
-#include <avr/io.h>             // Для низкоуровневого доступа к регистрам AVR
-#include <avr/interrupt.h>      // Для работы с прерываниями
+#include <EEPROM.h>             
+#include <CyberLib.h>           
+#include <Wire.h>               
+#include <LiquidCrystal_I2C.h>  
+#include <Bounce2.h>            
+#include <avr/io.h>             
+#include <avr/interrupt.h>     
  
 // ===== Ассемблерные вставкидля решения проблем с таймингом =====
 #if 1
@@ -1670,4 +1670,5 @@ byte GetPos(uint16_t number) {
 
 
  
+
 
