@@ -1,0 +1,526 @@
+esphome:
+  name: san-uzel-esp32
+  friendly_name: san-uzel-esp32
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Включить logging 2
+logger:
+  baud_rate: 0
+  logs:
+    sensor: INFO # Уровень отладки с uart_target_output = overload!
+    binary_sensor: INFO
+    text_sensor: INFO
+
+# Включить Home Assistant API
+api:
+  encryption:
+    key: "W2PVE/acnmZU+rLDRDRV9fUxQJYuXUD3F5yIFVbLpJs="
+
+ota:
+  - platform: esphome
+    password: "570d28369f5056817c94fc0862055c3f"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+# Включите резервную точку доступа (captive portal) на случай сбоя Wi-Fi-соединения
+  ap:
+    ssid: "San-Uzel-Esp32 Fallback Hotspot"
+    password: "l6BR3LUdg2RB"
+
+# префикс для объектов Home Assistant -> ИЗМЕНИТЬ на наш собственный префикс
+substitutions:
+  device_name: toilet_beneden_
+
+web_server:
+  port: 80
+  version: 2
+  include_internal: true
+  ota: false
+
+captive_portal:
+
+# UART для платы LD2410 -> ПЕРЕКЛЮЧИТЕСЬ на свой GPIO!!
+uart:
+  id: uart_bus
+  tx_pin:
+    number: 17
+  rx_pin: 
+    number: 16
+  baud_rate: 256000
+  parity: NONE
+  stop_bits: 1
+
+ld2410:
+
+
+# Пример ввода конфигурации для ESP32
+i2c:
+  sda: 4
+  scl: 15
+  scan: true
+  id: bus_a
+
+# Пример ввода конфигурации
+pcf8574:
+  - id: 'pcf8574_hub_out_1'  # для выходного канала 1-8
+    address: 0x24
+
+  - id: 'pcf8574_hub_in_1'  # для входного канала 1-8
+    address: 0x22
+
+
+# ======================================= Глобальные переменные ======================================= 
+globals:
+    # Эта переменная сохраняет текущий режим, выбранный нажатием кнопок (физических или цифровых).
+  - id: hummax
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+    # Эта переменная сохраняет текущий режим, выбранный нажатием кнопок (физических или цифровых).
+  - id: hummin
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+    # Эта переменная сохраняет текущий режим, выбранный нажатием кнопок (физических или цифровых).
+
+
+
+# =============================== Название сенсоров, отображаемых в интерфейсе ============================
+number:
+
+    # Параметры максимальной влажности
+  - platform: template
+    name: "Humidity_Max"
+    id: "modeSlidermax"
+    optimistic: true
+    restore_value: true
+    step: 1
+    min_value: 60
+    max_value: 90
+    mode: slider
+    set_action:
+      then:
+        - lambda:  id(hummax) = x;
+
+    # Параметры минмальной влажности
+  - platform: template
+    name: "Humidity_Min"
+    id: "modeSlidermin"
+    optimistic: true
+    restore_value: true
+    step: 1
+    min_value: 50
+    max_value: 80
+    mode: slider
+    set_action:
+      then:
+        - lambda:  id(hummin) = x;
+
+    # Дачик присутствия ld2410 параметры
+  - platform: ld2410
+    timeout:
+      name: ${device_name}timeout
+    light_threshold:
+      name: ${device_name}light_threshold
+    max_move_distance_gate:
+      name: ${device_name}max_move_distance_gate
+    max_still_distance_gate:
+      name: ${device_name}max_still_distance_gate
+
+# ======================================= Считывание Температуры и Влажности ======================================= 
+sensor:
+  - platform: dht
+    pin: GPIO32
+    temperature:
+      name: "Temperature"
+    humidity:
+      name: "Humidity"
+      id: humidity_sensor
+      on_value:
+        then:
+          - script.execute: set_fan_on   # Запуск скрипта на включение вытежки
+          - script.execute: set_fan_off  # Запуск скрипта на выключение вытежки   
+    update_interval: 2s
+
+
+    # Дачик присутствия ld2410 параметры
+  - platform: ld2410
+    light:
+      name: ${device_name}light_sensitivity
+    moving_distance:
+      name : ${device_name}moving_distance
+    still_distance:
+      name: ${device_name}still_distance
+    moving_energy:
+      name: ${device_name}moving_energy
+    still_energy:
+      name: ${device_name}still_energy
+    detection_distance:
+      name: ${device_name}detection_distance
+
+
+# ======================================= Индивидуальные outputs ======================================= 
+output:
+    # Первое реле
+  - platform: gpio
+    id: relay1
+    pin:
+      pcf8574: pcf8574_hub_out_1
+      number: 0
+      mode: OUTPUT
+      inverted: true
+
+    # Первое реле
+  - platform: gpio
+    id: relay2
+    pin:
+      pcf8574: pcf8574_hub_out_1
+      number: 1
+      mode: OUTPUT
+      inverted: true
+
+# ======================================= Настройка параметров света ======================================= 
+light:
+     # Туалет
+  - platform: binary
+    id: light1
+    output: relay1
+    name: "Light 1"
+    restore_mode: RESTORE_DEFAULT_ON
+
+     # Ванная
+  - platform: binary
+    id: light2
+    output: relay2
+    name: "Light 2"
+    restore_mode: RESTORE_DEFAULT_ON
+
+     # Подсветка выключателей
+  - platform: neopixelbus
+    type: GRB
+    id: RGB
+    variant: WS2812
+    pin: 13
+    num_leds: 2
+    name: "Light T"
+    restore_mode: RESTORE_DEFAULT_ON
+
+# ======================================= Переключатели ======================================= 
+switch:
+    # Вытежка
+  - platform: gpio
+    name: "Fan"
+    id: fan
+    pin:
+      pcf8574: pcf8574_hub_out_1
+      number: 2
+      mode: OUTPUT
+      inverted: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+
+  - platform: gpio
+#    name: "a6-switch4"
+    id: switch4
+    pin:
+      pcf8574: pcf8574_hub_out_1
+      number: 3
+      mode: OUTPUT
+      inverted: false
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: gpio
+#    name: "a6-switch5"
+    id: switch5
+    pin:
+      pcf8574: pcf8574_hub_out_1
+      number: 4
+      mode: OUTPUT
+      inverted: false
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: gpio
+#    name: "a6-switch6"
+    id: switch6
+    pin:
+      pcf8574: pcf8574_hub_out_1
+      number: 5
+      mode: OUTPUT
+      inverted: false
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: ld2410
+    engineering_mode:
+      name: ${device_name}engineering_mode
+    bluetooth:
+      name: Control bluetooth
+
+# ================================== Бинарные сенсоры ==================================
+
+  # Переключатель света в Туалете
+binary_sensor:
+  - platform: gpio
+    name: "a6-input1"
+    pin:
+      pcf8574: pcf8574_hub_in_1
+      number: 0
+      mode: INPUT
+      inverted: true
+    id: button1
+    on_press:
+      then:
+        - light.turn_on: light1  # Включение света в Туалете
+        - light.addressable_set: # Переключение RGB
+              id: RGB
+              range_from: 0
+              range_to: 0
+              red: 100%
+              green: 0%
+              blue: 0%
+
+    on_release:
+      then:
+        - light.turn_off: light1  # Выключение света в Туалете
+        - light.addressable_set:  # Переключение RGB
+              id: RGB
+              range_from: 0
+              range_to: 0
+              red: 0%
+              green: 50%
+              blue: 50%
+
+  # Переключатель света в Ванной
+  - platform: gpio
+    name: "a6-input2"
+    pin:
+      pcf8574: pcf8574_hub_in_1
+      number: 1
+      mode: INPUT
+      inverted: true
+    id: button2
+    on_press:
+      then:
+        - light.turn_on: light2  # Включение света в Ванной
+        - light.addressable_set:  # Переключение RGB
+              id: RGB
+              range_from: 1
+              range_to: 1
+              red: 100%
+              green: 0%
+              blue: 0%
+    on_release:
+      then:
+        - light.turn_off: light2  # Выключение света в Ванной
+        - light.addressable_set:  # Переключение RGB
+              id: RGB
+              range_from: 1
+              range_to: 1
+              red: 0%
+              green: 50%
+              blue: 50%
+
+  # Переключатель вентилятора в Ванной
+  - platform: gpio
+    name: "a6-input3"
+    pin:
+      pcf8574: pcf8574_hub_in_1
+      number: 2
+      mode: INPUT
+      inverted: true
+    id: button3
+    on_release:
+      then:
+        - switch.turn_off: fan
+
+  # LD2410 -> ПЕРЕКЛЮЧИТЕСЬ на свой GPIO!!
+  - platform: gpio
+    name: ${device_name}occupancy
+    pin:
+      pcf8574: pcf8574_hub_in_1
+      number: 3
+    id: button4
+    device_class: presence
+
+
+  # Дачик геркон двери Ванной
+  - platform: gpio
+    name: "Door_contact2"
+    pin:
+      pcf8574: pcf8574_hub_in_1
+      number: 4
+      mode: INPUT
+      inverted: false
+    id: button5
+    device_class: door
+    on_state:
+      then:
+        - script.execute: set_2_on
+
+  # Дачик геркон двери Туалета
+  - platform: gpio
+    name: "Door_contact"
+    pin:
+      pcf8574: pcf8574_hub_in_1
+      number: 5
+      mode: INPUT
+      inverted: false
+    device_class: door
+    id: button6
+    on_state:
+      then:
+        - script.execute: set_1_on
+
+
+    # Дачик присутствия ld2410 параметры
+  - platform: ld2410
+    has_target:
+      name: ${device_name}presence
+      id: button8
+      on_press:
+        then:
+          - script.execute: set_1_on
+          - light.turn_on: light1   # Выключение света в Туалете
+          - light.addressable_set:  # Переключение RGB
+                id: RGB
+                range_from: 0
+                range_to: 0
+                red: 100%
+                green: 0%
+                blue: 0%
+      on_release:
+        then:
+          - script.execute: set_1_on
+          - light.turn_off: light1  # Выключение света в Туалете
+          - light.addressable_set:  # Переключение RGB
+                id: RGB
+                range_from: 0
+                range_to: 0
+                red: 0%
+                green: 50%
+                blue: 50%
+
+    has_moving_target:
+      name: ${device_name}moving_target
+    has_still_target:
+      name: ${device_name}still_target
+    out_pin_presence_status:
+      name: ${device_name}engineering_occupancy
+
+
+# ================================== Кнопки ==================================
+
+button:
+    # Кнопка перезагрузки
+  - platform: restart
+    name: "Room Restart"
+
+    # Кнопка перезагрузки ld2410
+  - platform: restart
+    name: ${device_name}restart_device  
+  - platform: ld2410
+    factory_reset:
+      name: ${device_name}ld2410_factory_reset
+    restart:
+      name: ${device_name}ld2410_restart
+    query_params:
+      name: ${device_name}query_params
+
+# ================================== Скрипты ==================================
+
+script:
+
+  # Скриат включения и выключения освещения в Туалете
+  - id: set_1_on
+    then:
+      - if:
+          condition:
+              - binary_sensor.is_off: button8  # Если сработал дачик присутствия то включить свет
+              - binary_sensor.is_off: button6  # Если сработал геркон то включить свет
+              - binary_sensor.is_off: button1  # Если включили настенный переключатель то включить свет
+          then:
+            - light.turn_off: light1   # если дачики выключины то свет выключен
+          else:
+            - light.turn_on: light1    # если какой либо из дачиков включин то свет включить
+
+            
+  # Скриат включения и выключения освещения в Ванной
+  - id: set_2_on
+    then:
+      - if:
+          condition:
+              - binary_sensor.is_off: button5  # Если сработал геркон то включить свет
+              - binary_sensor.is_off: button2  # Если включили настенный переключатель то включить свет
+          then:
+            - light.turn_off: light2   # если дачики выключины то свет выключен
+          else:
+            - light.turn_on: light2    # если какой либо из дачиков включин то свет включить
+
+  # Скриат для включения Вентиляции
+  - id: set_fan_on
+    then:
+      - if:
+          condition:
+            and:
+              - binary_sensor.is_on: button3  # Если включили настенный переключатель то включить Вытежку
+          then:
+            - if:
+                condition:  # Если влажность больше установленной то включить вытежку
+                  lambda: |-
+                    return id(hummax) < id(humidity_sensor).state;
+                then:
+                  - switch.turn_on: fan  # Включить вытежку
+
+  # Скриат для выключения Вентиляции
+  - id: set_fan_off
+    then:
+      - if:
+          condition:
+            and:
+              - binary_sensor.is_on: button3  # Если выключили настенный переключатель то выключить Вытежку
+          then:
+            - if:
+                condition:  # Если влажность меньше установленной то выключить вытежку
+                  lambda: |-
+                    return id(hummin) > id(humidity_sensor).state;
+                then:
+                  - switch.turn_off: fan  # Выключить вытежку
+
+
+# ================================== Таймеры ==================================
+
+time:
+  # when the clock strikes 12, re-enable the timer
+  - platform: homeassistant
+    id: homeassistant_time
+    on_time:
+      - seconds: 5
+        minutes: 0
+        hours: 0
+        then:
+          - light.turn_off: light1
+
+# ================================== ld2410 ==================================
+
+select:
+  - platform: ld2410
+    distance_resolution:
+      name: ${device_name}distance_resolution
+    light_function:
+      name: ${device_name}ld2410_ligh_function
+    out_pin_level:
+      name: ${device_name}ld2410_out_pin_level
+
+# ================================== Текстовый сенсор ==================================
+
+text_sensor:
+  - platform: ld2410
+    version:
+      name: ${device_name}firmware_version
